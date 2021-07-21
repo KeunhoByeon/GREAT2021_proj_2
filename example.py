@@ -29,17 +29,37 @@ def load():
     x_test = torch.from_numpy(x_test).float()
     y_test = torch.from_numpy(y_test).long()
 
-    # print('Trainset Size:', x.size(), y.size())
+    os.makedirs('./quick_data', exist_ok=True)
+    torch.save(x, './quick_data/x')
+    torch.save(y, './quick_data/y')
+    torch.save(x_test, './quick_data/x_test')
+    torch.save(y_test, './quick_data/y_test')
+
     # print('Testset Size:', x_test.size(), y_test.size())
-    # print('Labels:', y.unique(), y_test.unique())
+    # print('Labels:', y_test.unique())
 
     return x, x_test, y, y_test
+
+
+def quick_load():
+    try:
+        x = torch.load('./quick_data/x')
+        y = torch.load('./quick_data/y')
+        x_test = torch.load('./quick_data/x_test')
+        y_test = torch.load('./quick_data/y_test')
+
+        # print('Testset Size:', x_test.size(), y_test.size())
+        # print('Labels:', y_test.unique())
+
+        return x, x_test, y, y_test
+    except:
+        return load()
 
 
 # simple OnlineHD training
 def main():
     print('Loading...')
-    x, x_test, y, y_test = load()
+    x, x_test, y, y_test = quick_load()
     classes = y.unique().size(0)
     features = x.size(1)
     model = onlinehd.OnlineHD(classes, features)
@@ -66,11 +86,7 @@ def main():
     print(f'{acc_test = :6f}')
     print(f'{t = :6f}')
 
-    yhat_test = model(x_test)
-    acc_test = (y_test == yhat_test).float().mean()
-    print(f'{acc_test = :6f}')
-
-    torch.save(model, 'model_new.pth')
+    torch.save(model, 'model.pth')
 
 
 if __name__ == '__main__':

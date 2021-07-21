@@ -63,14 +63,14 @@ class Encoder(object):
             torch.matmul(x[i:i + bsize], self.basis.T, out=temp)
             torch.add(temp, self.base, out=h[i:i + bsize])
             # h[i:i+bsize].cos_().mul_(temp.sin_())
-            # h[i:i+bsize].mul_(temp)
+            h[i:i+bsize].mul_(temp)
 
-        # DEBUG
-        x_decoded = self.decode(h)
-        x_decoded = x_decoded
-        print('x', x.sum(), x)
-        print('x_decoded', x_decoded.sum(), x_decoded)
-        print('diff', (x - x_decoded).sum())
+        # # DEBUG
+        # x_decoded = self.decode(h)
+        # x_decoded = x_decoded
+        # print('x', x.sum(), x)
+        # print('x_decoded', x_decoded.sum(), x_decoded)
+        # print('diff', (x - x_decoded).sum())
 
         return h
 

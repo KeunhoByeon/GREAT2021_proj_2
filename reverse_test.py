@@ -1,5 +1,6 @@
 from time import time
 
+import os
 import torch
 import sklearn.datasets
 import sklearn.preprocessing
@@ -15,8 +16,8 @@ def load():
     # fetches data
     x, y = sklearn.datasets.fetch_openml('mnist_784', return_X_y=True)
     y = np.array(y)
-    x = x.astype(np.float)
-    y = y.astype(np.int)
+    x = x.astype(np.float64)
+    y = y.astype(np.int64)
 
     # split and normalize
     x, x_test, y, y_test = sklearn.model_selection.train_test_split(x, y)
@@ -30,26 +31,31 @@ def load():
     x_test = torch.from_numpy(x_test).float()
     y_test = torch.from_numpy(y_test).long()
 
-    print('Testset Size:', x_test.size(), y_test.size())
-    print('Labels:', y_test.unique())
-
-    import os
     os.makedirs('./quick_data', exist_ok=True)
     torch.save(x, './quick_data/x')
     torch.save(y, './quick_data/y')
     torch.save(x_test, './quick_data/x_test')
     torch.save(y_test, './quick_data/y_test')
 
+    # print('Testset Size:', x_test.size(), y_test.size())
+    # print('Labels:', y_test.unique())
+
     return x, x_test, y, y_test
 
 
 def quick_load():
-    x = torch.load('./quick_data/x')
-    y = torch.load('./quick_data/y')
-    x_test = torch.load('./quick_data/x_test')
-    y_test = torch.load('./quick_data/y_test')
+    try:
+        x = torch.load('./quick_data/x')
+        y = torch.load('./quick_data/y')
+        x_test = torch.load('./quick_data/x_test')
+        y_test = torch.load('./quick_data/y_test')
 
-    return x, x_test, y, y_test
+        # print('Testset Size:', x_test.size(), y_test.size())
+        # print('Labels:', y_test.unique())
+
+        return x, x_test, y, y_test
+    except:
+        return load()
 
 
 def model_load(model, load_path):
@@ -83,11 +89,14 @@ def test():
     model_load(model, 'model_new.pth')
 
     print('Validating...')
-    yhat_test = model(x_test)
-
+    t = time()
     raw_prob = model.probabilities_raw(x_test)
+    t = time() - t
 
-    new_tensor = torch.zeros(raw_prob.size())
+    yhat_test = raw_prob.argmax(1)
+    acc_test = (y_test == yhat_test).float().mean()
+    print(f'{acc_test = :6f}')
+    print(f'{t = :6f}')
 
     first_highest_indices = raw_prob.topk(k=2, dim=1).indices[:, 0]
     first_highest_prob = raw_prob[range(raw_prob.shape[0]), first_highest_indices]
@@ -97,19 +106,9 @@ def test():
     # noise_prob = 1.0 - second_highest_prob
     noise_prob = first_highest_prob - second_highest_prob
 
-    new_tensor[range(raw_prob.shape[0]), second_highest_indices] = noise_prob
-
-    # print()
-    # print(raw_prob.size())
-    # print(raw_prob)
-    # print(top_2)
-    # print(second_high)
-    # print(second_high_prob)
-    # print(new_tensor.size())
-    print(new_tensor)
-
-    acc_test = (y_test == yhat_test).float().mean()
-    print(f'{acc_test = :6f}')
+    noise_h = torch.zeros(raw_prob.size())
+    noise_h[range(raw_prob.shape[0]), second_highest_indices] = noise_prob
+    # print(noise_h.size())
 
 
 if __name__ == '__main__':
