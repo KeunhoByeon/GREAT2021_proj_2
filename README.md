@@ -54,7 +54,7 @@ class OnlineHD(object):
 1. Getting noise probability(score) for adversarial attacks
 1-1. I've tried several times, but
       noise_prob = first_highest_prob - second_highest_prob
-      doesn't seem to work, so I used
+      doesn't seem to work well, so I used
       highest_error_indices = np.where(gt == first_highest_indices, second_highest_indices, first_highest_indices)
       noise_prob = 1.0 - raw_prob[range(raw_prob.shape[0]), highest_error_indices]
 

@@ -21,7 +21,7 @@ def get_noise_vector(raw_prob, gt):
     highest_error_indices = np.where(gt == first_highest_indices, second_highest_indices, first_highest_indices)
     noise_prob = 1.0 - raw_prob[range(raw_prob.shape[0]), highest_error_indices]
 
-    # # I think it doesn't work
+    # # I think it doesn't work well
     # first_highest_prob = raw_prob[range(raw_prob.shape[0]), first_highest_indices]
     # second_highest_prob = raw_prob[range(raw_prob.shape[0]), second_highest_indices]
     # noise_prob = first_highest_prob - second_highest_prob
