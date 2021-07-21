@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 import onlinehd
 from onlinehd.spatial import reverse_cos_cdist
-from utils import load_mnist, load_model, txt_on_img, hdvector2img
+from utils import save_model, load_mnist, load_model, txt_on_img, hdvector2img
 
 
 def get_noise_vector(raw_prob, gt):
@@ -160,6 +160,10 @@ def main(args):
     print('\n[Validate After Retrain]')
     validate(model, x_test, y_test, debug=True, debug_dir='./debug_after_retrain')
 
+    # Save model object
+    save_model(model, os.path.join(args.results, 'model_retrained.pth'))
+
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -178,5 +182,9 @@ if __name__ == '__main__':
         random.seed(args.seed)
         torch.manual_seed(args.seed)
         cudnn.deterministic = True
+
+    # Save args
+    with open(os.path.join(args.results, 'args_retrained.txt'), 'w') as wf:
+        wf.write(str(args))
 
     main(args)
