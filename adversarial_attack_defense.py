@@ -136,7 +136,7 @@ def main(args):
     features = x.size(1)
 
     print('Loading model...')
-    model = onlinehd.OnlineHD(classes, features, args.dimension)
+    model = onlinehd.OnlineHD(classes, features)
     load_model(model, args.model)
 
     if torch.cuda.is_available():
@@ -165,7 +165,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lr', default=0.005, metavar='L')
     parser.add_argument('--epochs', default=20, metavar='E')
-    parser.add_argument('--dimension', default=4000, metavar='D')
     parser.add_argument('--bootstrap', default=1.0, metavar='B')
     parser.add_argument('--one_pass_fit', default=False, metavar='O')
     parser.add_argument('--retrain_iter', default=10)
