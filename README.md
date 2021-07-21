@@ -82,7 +82,7 @@ def reverse_cos_cdist(cdist: torch.Tensor, x1: torch.Tensor, x2: torch.Tensor, e
     norms2 = x2.norm(dim=1).unsqueeze_(0).max(eps)
 
     cdist = cdist.mul(norms2).mul(norms1)
-    reverse_x1 = cdist @ x2.T.preverse()
+    reverse_x1 = cdist @ x2.T.pinverse()
 
     return reverse_x1
 ```
