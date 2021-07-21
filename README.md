@@ -58,7 +58,7 @@ class OnlineHD(object):
       highest_error_indices = np.where(gt == first_highest_indices, second_highest_indices, first_highest_indices)
       noise_prob = 1.0 - raw_prob[range(raw_prob.shape[0]), highest_error_indices]
 
-2. Revering cos_cdist
+2. Reversing cos_cdist
 2-1. I think when reversing x from distance, there seems to be a relatively large error due to pinverse() in cdist @ x2.T.pinverse() operation.
 
 3. Decoding data
