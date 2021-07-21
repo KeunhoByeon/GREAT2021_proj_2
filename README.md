@@ -48,12 +48,32 @@ class OnlineHD(object):
     
 ```
 
+## Note
+```
+1. Getting noise probability(score) for adversarial attacks
+1-1. I've tried several times, but
+      noise_prob = first_highest_prob - second_highest_prob
+      doesn't seem to work, so I used 
+      highest_error_indices = np.where(gt == first_highest_indices, second_highest_indices, first_highest_indices)
+      noise_prob = 1.0 - raw_prob[range(raw_prob.shape[0]), highest_error_indices]
+
+2. Revering cos_cdist
+2-1. I think when reversing x from distance, there seems to be a relatively large error due to pinverse() in cdist @ x2.T.pinverse() operation.
+
+3. Decoding data
+3-1. Removed cos and sin operations.
+3-2. Since the mul operation in the encoding stage requires solving a quadratic function during decoding, two cases occur during decoding. 
+      So I also removed the mul operation during encoding.
+      (I am not sure if I can handle it like this)
+3-3. There was an error due to very small decimal data, so it was rounded to 6 decimal places.
+```
+
 ## TODO
-The error value is relatively large at this part, so I hope this part can be changed.
+The error value is relatively large at this part, so I hope this part to be changed.
 ```python
 # ./onlinehd/spatial.py
 def reverse_cos_cdist(cdist: torch.Tensor, x1: torch.Tensor, x2: torch.Tensor, eps: float = 1e-8):
-    # TODO: The error value is relatively large at this part, so I hope this part can be changed.
+    # TODO: The error value is relatively large at this part, so I hope this part to be changed.
     eps = torch.tensor(eps, device=x1.device)
     norms1 = x1.norm(dim=1).unsqueeze_(1).max(eps)
     norms2 = x2.norm(dim=1).unsqueeze_(0).max(eps)
