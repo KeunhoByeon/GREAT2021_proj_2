@@ -151,10 +151,10 @@ def main(args):
     validate(model, x_test, y_test, debug=True, debug_dir='./debug_before_retrain')
 
     for retrain_i in range(args.retrain_iter):
-        print('\n[Retrain {}/{}]'.format(retrain_i, args.retrain_iter))
+        print('\n[Retrain {}/{}]'.format(retrain_i + 1, args.retrain_iter))
         retrain(args, model, x, y)
 
-        print('\n[Validate {}/{}]'.format(retrain_i, args.retrain_iter))
+        print('\n[Validate {}/{}]'.format(retrain_i + 1, args.retrain_iter))
         validate(model, x_test, y_test)  # , debug=True, debug_dir='./debug_after_retrain_{}'.format(retrain_i))
 
     print('\n[Validate After Retrain]')
