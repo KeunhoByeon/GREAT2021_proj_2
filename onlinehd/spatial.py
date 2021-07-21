@@ -35,13 +35,13 @@ def cos_cdist(x1: torch.Tensor, x2: torch.Tensor, eps: float = 1e-8):
     return cdist
 
 
-def inverse_cos_cdist(cdist: torch.Tensor, x1: torch.Tensor, x2: torch.Tensor, eps: float = 1e-8):
-    # TODO: The error value is large in this part, so it has to be replaced
+def reverse_cos_cdist(cdist: torch.Tensor, x1: torch.Tensor, x2: torch.Tensor, eps: float = 1e-8):
+    # TODO: The error value is relatively large at this part, so I hope this part can be changed.
     eps = torch.tensor(eps, device=x1.device)
     norms1 = x1.norm(dim=1).unsqueeze_(1).max(eps)
     norms2 = x2.norm(dim=1).unsqueeze_(0).max(eps)
 
     cdist = cdist.mul(norms2).mul(norms1)
-    new_x1 = cdist @ x2.T.pinverse()
+    reverse_x1 = cdist @ x2.T.preverse()
 
-    return new_x1
+    return reverse_x1

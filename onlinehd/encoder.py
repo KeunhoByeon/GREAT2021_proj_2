@@ -99,7 +99,7 @@ class Encoder(object):
 
         n = h.size(0)
         bsize = math.ceil(0.01 * n)
-        basis_t_pinv = self.basis.T.pinverse()
+        basis_t_pinv = self.basis.T.preverse()
         x_decoded = torch.zeros(n, self.features, device=h.device, dtype=h.dtype)
         temp = torch.zeros(bsize, self.dim, device=h.device, dtype=h.dtype)
 

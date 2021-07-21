@@ -10,7 +10,7 @@ import torch.backends.cudnn as cudnn
 from tqdm import tqdm
 
 import onlinehd
-from onlinehd.spatial import inverse_cos_cdist
+from onlinehd.spatial import reverse_cos_cdist
 from utils import load_mnist, load_model, txt_on_img, hdvector2img
 
 
@@ -44,17 +44,17 @@ def validate(model, x_test, y_test, debug=False, debug_dir='./debug', debug_max_
     print(f'{t = :6f}')
 
     noise_vector = get_noise_vector(raw_prob, y_test)
-    noise = model.decode(inverse_cos_cdist(noise_vector, model.encode(x_test), model.model))
+    noise = model.decode(reverse_cos_cdist(noise_vector, model.encode(x_test), model.model))
     noise_x_test = x_test + noise
     print('Noise sum:', torch.sum(noise).item())
 
     if debug:
-        inverse_x_test = model.decode(inverse_cos_cdist(raw_prob, model.encode(x_test), model.model))
+        reverse_x_test = model.decode(reverse_cos_cdist(raw_prob, model.encode(x_test), model.model))
         noise_x_prob = model.probabilities_raw(x_test + noise)
         noise_x_yhat = noise_x_prob.argmax(1)
-        inverse_yhat = model(inverse_x_test)
-        inverse_x_test_acc = (y_test == inverse_yhat).float().mean().item()
-        print(f'{inverse_x_test_acc = :6f}')
+        reverse_yhat = model(reverse_x_test)
+        reverse_x_test_acc = (y_test == reverse_yhat).float().mean().item()
+        print(f'{reverse_x_test_acc = :6f}')
         noise_x_test_acc = (y_test == noise_x_yhat).float().mean().item()
         print(f'{noise_x_test_acc = :6f}')
         print('noise_x_test corrected ({}):'.format(len(np.where(y_test == noise_x_yhat)[0])), np.where(y_test == noise_x_yhat))
@@ -67,7 +67,7 @@ def validate(model, x_test, y_test, debug=False, debug_dir='./debug', debug_max_
                 break
 
             gt = y_test[debug_index].item()
-            inverse_pred = inverse_yhat[debug_index].item()
+            reverse_pred = reverse_yhat[debug_index].item()
             first_highest_index = first_highest_indices[debug_index].item()
             second_highest_index = second_highest_indices[debug_index].item()
             noise_yhat = noise_x_yhat[debug_index].item()
@@ -75,22 +75,22 @@ def validate(model, x_test, y_test, debug=False, debug_dir='./debug', debug_max_
             noise_probability = noise_x_prob[debug_index].cpu().detach().numpy()
 
             img_x_test = hdvector2img(x_test[debug_index].cpu().detach().numpy(), resize_ratio=debug_resize_ratio)
-            img_inverse_x_test = hdvector2img(inverse_x_test[debug_index].cpu().detach().numpy(), resize_ratio=debug_resize_ratio)
+            img_reverse_x_test = hdvector2img(reverse_x_test[debug_index].cpu().detach().numpy(), resize_ratio=debug_resize_ratio)
             img_noise = hdvector2img(noise[debug_index].cpu().detach().numpy(), resize_ratio=debug_resize_ratio)
             img_noise_x_test = hdvector2img(noise_x_test[debug_index].cpu().detach().numpy(), resize_ratio=debug_resize_ratio)
             txt_on_img(img_x_test, 'img_x_test')
-            txt_on_img(img_inverse_x_test, 'img_inverse_x_test')
+            txt_on_img(img_reverse_x_test, 'img_reverse_x_test')
             txt_on_img(img_noise, 'img_noise')
             txt_on_img(img_noise_x_test, 'img_noise_x_test')
 
-            stack_img = np.hstack((img_x_test, img_inverse_x_test, img_noise, img_noise_x_test))
+            stack_img = np.hstack((img_x_test, img_reverse_x_test, img_noise, img_noise_x_test))
 
             l = img_x_test.shape[0]
             text_img = np.zeros((stack_img.shape[0] // 3 * 2, stack_img.shape[1]))
             txt_on_img(text_img, 'Ground truth: {}'.format(gt), coord=(10, 30 * 1))
             txt_on_img(text_img, '1st highest pred: {}'.format(first_highest_index), coord=(10, 30 * 2))
             txt_on_img(text_img, '2st highest pred: {}'.format(second_highest_index), coord=(10, 30 * 3))
-            txt_on_img(text_img, 'Inverse image pred: {}'.format(inverse_pred), coord=(10 + l * 1, 30 * 1))
+            txt_on_img(text_img, 'reverse image pred: {}'.format(reverse_pred), coord=(10 + l * 1, 30 * 1))
             txt_on_img(text_img, 'Noise image pred: {}'.format(noise_yhat), coord=(10 + l * 3, 30 * 1))
             txt_on_img(text_img, 'Original image probability:', coord=(10, 30 * 5))
             txt_on_img(text_img, '{}'.format(raw_probability), coord=(10, 30 * 6), scale=0.8)
@@ -115,7 +115,7 @@ def retrain(args, model, x, y):
     # print(f'{t = :6f}')
 
     noise_vector = get_noise_vector(raw_prob, y)
-    noise = model.decode(inverse_cos_cdist(noise_vector, model.encode(x), model.model))
+    noise = model.decode(reverse_cos_cdist(noise_vector, model.encode(x), model.model))
     noise_x = x + noise
 
     print('Retraining...')
