@@ -86,7 +86,7 @@ def test():
         model = model.to('cuda')
         print('Using GPU!')
 
-    model_load(model, 'model_new.pth')
+    model_load(model, 'model.pth')
 
     print('Validating...')
     t = time()
