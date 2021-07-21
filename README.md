@@ -17,8 +17,3 @@ python3 test.py
 ```
 python3 adversarial_attack_defense.py
 ```
-
-
-python3 train.py
-python3 test.py
-python3 adversarial_attack_defense.py
