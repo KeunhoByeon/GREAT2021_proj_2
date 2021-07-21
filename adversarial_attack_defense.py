@@ -166,8 +166,8 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--lr', default=0.005, metavar='L')
-    parser.add_argument('--epochs', default=20, metavar='E')
+    parser.add_argument('--lr', default=0.001, metavar='L')
+    parser.add_argument('--epochs', default=10, metavar='E')
     parser.add_argument('--bootstrap', default=1.0, metavar='B')
     parser.add_argument('--one_pass_fit', default=False, metavar='O')
     parser.add_argument('--retrain_iter', default=10)
