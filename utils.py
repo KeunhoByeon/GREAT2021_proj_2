@@ -1,14 +1,15 @@
 import os
 
+import cv2
 import numpy as np
 import sklearn.datasets
 import sklearn.model_selection
 import sklearn.preprocessing
 import torch
-import cv2
+
 
 # Loads simple mnist dataset
-def load_mnist(data_dir, print_info=True, save_data=True):
+def load_mnist(data_dir, print_info=False, save_data=True):
     try:
         # Load local data
         x = torch.load(os.path.join(data_dir, 'x'))
@@ -94,3 +95,12 @@ def load_model(model, load_path):
 
 def txt_on_img(img, text, coord=(10, 30), font=cv2.FONT_HERSHEY_SIMPLEX, scale=1., color=255, line_type=2):
     cv2.putText(img, text, coord, font, scale, color, line_type)
+
+
+def hdvector2img(vector, denormalize=True, resize_ratio=1):
+    img = vector.reshape(-1, int(len(vector) ** 0.5))
+    if denormalize:
+        img = img / np.max(img) * 255.
+    if resize_ratio != 1:
+        img = cv2.resize(img, (img.shape[0] * resize_ratio, img.shape[1] * resize_ratio))
+    return img

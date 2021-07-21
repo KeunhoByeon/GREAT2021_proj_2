@@ -28,7 +28,7 @@ def train(args):
 
     print('Training...')
     t = time()
-    model = model.fit(x, y, bootstrap=args.bootstrap, lr=args.lr, epochs=args.epochs)
+    model = model.fit(x, y, bootstrap=args.bootstrap, lr=args.lr, epochs=args.epochs, one_pass_fit=args.one_pass_fit)
     t = time() - t
 
     print('Validating...')

@@ -11,16 +11,17 @@ from tqdm import tqdm
 
 import onlinehd
 from onlinehd.spatial import inverse_cos_cdist
-from utils import load_mnist, load_model, txt_on_img
+from utils import load_mnist, load_model, txt_on_img, hdvector2img
 
 
 def get_noise_vector(raw_prob, gt):
     first_highest_indices = raw_prob.topk(k=2, dim=1).indices[:, 0]
     second_highest_indices = raw_prob.topk(k=2, dim=1).indices[:, 1]
 
-    target_indices = np.where(gt == first_highest_indices, second_highest_indices, first_highest_indices)
-    noise_prob = 1.0 - raw_prob[range(raw_prob.shape[0]), target_indices]
+    highest_error_indices = np.where(gt == first_highest_indices, second_highest_indices, first_highest_indices)
+    noise_prob = 1.0 - raw_prob[range(raw_prob.shape[0]), highest_error_indices]
 
+    # # I think it doesn't work
     # first_highest_prob = raw_prob[range(raw_prob.shape[0]), first_highest_indices]
     # second_highest_prob = raw_prob[range(raw_prob.shape[0]), second_highest_indices]
     # noise_prob = first_highest_prob - second_highest_prob
@@ -31,17 +32,8 @@ def get_noise_vector(raw_prob, gt):
     return noise_vector
 
 
-def hdvector2img(vector, denormalize=True, resize_ratio=1):
-    img = vector.reshape(-1, int(len(vector) ** 0.5))
-    if denormalize:
-        img = img / np.max(img) * 255.
-    if resize_ratio != 1:
-        img = cv2.resize(img, (img.shape[0] * resize_ratio, img.shape[1] * resize_ratio))
-    return img
-
-
-def validate(model, x_test, y_test, debug=False):
-    print('Validating...')
+def validate(model, x_test, y_test, debug=False, debug_dir='./debug', debug_max_num=100, debug_resize_ratio = 16):
+    # print('Validating...')
     t = time()
     raw_prob = model.probabilities_raw(x_test)
     t = time() - t
@@ -54,25 +46,23 @@ def validate(model, x_test, y_test, debug=False):
     noise_vector = get_noise_vector(raw_prob, y_test)
     noise = model.decode(inverse_cos_cdist(noise_vector, model.encode(x_test), model.model))
     noise_x_test = x_test + noise
-
     print('Noise sum:', torch.sum(noise).item())
 
-    inverse_x_test = model.decode(inverse_cos_cdist(raw_prob, model.encode(x_test), model.model))
-    noise_x_prob = model.probabilities_raw(x_test + noise)
-    noise_x_yhat = noise_x_prob.argmax(1)
-    inverse_yhat = model(inverse_x_test)
-    print('inverse_x_test acc:', (y_test == inverse_yhat).float().mean().item())
-    print('noise_x_test acc:', (y_test == noise_x_yhat).float().mean().item())
-
     if debug:
-        debug_max_num = 100  # -1 for all
-
+        inverse_x_test = model.decode(inverse_cos_cdist(raw_prob, model.encode(x_test), model.model))
+        noise_x_prob = model.probabilities_raw(x_test + noise)
+        noise_x_yhat = noise_x_prob.argmax(1)
+        inverse_yhat = model(inverse_x_test)
+        inverse_x_test_acc = (y_test == inverse_yhat).float().mean().item()
+        print(f'{inverse_x_test_acc = :6f}')
+        noise_x_test_acc = (y_test == noise_x_yhat).float().mean().item()
+        print(f'{noise_x_test_acc = :6f}')
         print('noise_x_test corrected ({}):'.format(len(np.where(y_test == noise_x_yhat)[0])), np.where(y_test == noise_x_yhat))
         first_highest_indices = raw_prob.topk(k=2, dim=1).indices[:, 0]
         second_highest_indices = raw_prob.topk(k=2, dim=1).indices[:, 1]
-        if debug_max_num == -1:
+        if debug_max_num == -1:  # -1 for all
             debug_max_num = len(y_test)
-        for debug_index in tqdm(range(len(y_test)), desc='Debug', total=debug_max_num):
+        for debug_index in tqdm(range(len(y_test)), desc='Debugging', total=debug_max_num):
             if debug_index >= debug_max_num:
                 break
 
@@ -81,14 +71,13 @@ def validate(model, x_test, y_test, debug=False):
             first_highest_index = first_highest_indices[debug_index].item()
             second_highest_index = second_highest_indices[debug_index].item()
             noise_yhat = noise_x_yhat[debug_index].item()
-            raw_probability = raw_prob[debug_index].numpy()
-            noise_probability = noise_x_prob[debug_index].numpy()
+            raw_probability = raw_prob[debug_index].cpu().detach().numpy()
+            noise_probability = noise_x_prob[debug_index].cpu().detach().numpy()
 
-            resize_ratio = 16
-            img_x_test = hdvector2img(x_test[debug_index].numpy(), resize_ratio=resize_ratio)
-            img_inverse_x_test = hdvector2img(inverse_x_test[debug_index].numpy(), resize_ratio=resize_ratio)
-            img_noise = hdvector2img(noise[debug_index].numpy(), resize_ratio=resize_ratio)
-            img_noise_x_test = hdvector2img(noise_x_test[debug_index].numpy(), resize_ratio=resize_ratio)
+            img_x_test = hdvector2img(x_test[debug_index].cpu().detach().numpy(), resize_ratio=debug_resize_ratio)
+            img_inverse_x_test = hdvector2img(inverse_x_test[debug_index].cpu().detach().numpy(), resize_ratio=debug_resize_ratio)
+            img_noise = hdvector2img(noise[debug_index].cpu().detach().numpy(), resize_ratio=debug_resize_ratio)
+            img_noise_x_test = hdvector2img(noise_x_test[debug_index].cpu().detach().numpy(), resize_ratio=debug_resize_ratio)
             txt_on_img(img_x_test, 'img_x_test')
             txt_on_img(img_inverse_x_test, 'img_inverse_x_test')
             txt_on_img(img_noise, 'img_noise')
@@ -110,12 +99,11 @@ def validate(model, x_test, y_test, debug=False):
 
             stack_img = np.vstack((stack_img, text_img))
 
-            debug_dir = './debug'
             os.makedirs(debug_dir, exist_ok=True)
             cv2.imwrite(os.path.join(debug_dir, '{}.png'.format(debug_index)), stack_img)
 
 
-def train(args, model, x, y):
+def retrain(args, model, x, y):
     print('Extracting noise...')
     t = time()
     raw_prob = model.probabilities_raw(x)
@@ -124,24 +112,24 @@ def train(args, model, x, y):
     yhat = raw_prob.argmax(1)
     acc = (y == yhat).float().mean()
     print(f'{acc = :6f}')
-    print(f'{t = :6f}')
+    # print(f'{t = :6f}')
 
     noise_vector = get_noise_vector(raw_prob, y)
     noise = model.decode(inverse_cos_cdist(noise_vector, model.encode(x), model.model))
     noise_x = x + noise
 
-    print('Training...')
+    print('Retraining...')
     t = time()
-    model = model.fit(noise_x, y, bootstrap=args.bootstrap, lr=args.lr, epochs=args.epochs)
+    model = model.fit(noise_x, y, bootstrap=args.bootstrap, lr=args.lr, epochs=args.epochs, one_pass_fit=args.one_pass_fit)
     t = time() - t
 
     yhat = model(x)
     acc = (y == yhat).float().mean()
     print(f'{acc = :6f}')
-    print(f'{t = :6f}')
+    # print(f'{t = :6f}')
 
 
-def defence_retrain(args):
+def main(args):
     print('Loading data...')
     x, x_test, y, y_test = load_mnist(args.data)
     classes = y.unique().size(0)
@@ -159,21 +147,28 @@ def defence_retrain(args):
         model = model.to('cuda')
         print('Using GPU!')
 
-    print('\nValidate Before Retrain ----------------------------------------')
-    validate(model, x_test, y_test, debug=True)
-    print('\nRetrain --------------------------------------------------------')
-    train(args, model, x, y)
-    print('\nValidate After Retrain -----------------------------------------')
-    validate(model, x_test, y_test)  # , debug=True)
+    print('\n[Validate Before Retrain]')
+    validate(model, x_test, y_test, debug=True, debug_dir='./debug_before_retrain')
+
+    for retrain_i in range(args.retrain_iter):
+        print('\n[Retrain {}/{}]'.format(retrain_i, args.retrain_iter))
+        retrain(args, model, x, y)
+
+        print('\n[Validate {}/{}]'.format(retrain_i, args.retrain_iter))
+        validate(model, x_test, y_test)  # , debug=True, debug_dir='./debug_after_retrain_{}'.format(retrain_i))
+
+    print('\n[Validate After Retrain]')
+    validate(model, x_test, y_test, debug=True, debug_dir='./debug_after_retrain')
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--lr', default=0.035, metavar='L')
+    parser.add_argument('--lr', default=0.005, metavar='L')
     parser.add_argument('--epochs', default=20, metavar='E')
     parser.add_argument('--dimension', default=4000, metavar='D')
     parser.add_argument('--bootstrap', default=1.0, metavar='B')
-    parser.add_argument('--one_pass_fit', default=True, metavar='O')
+    parser.add_argument('--one_pass_fit', default=False, metavar='O')
+    parser.add_argument('--retrain_iter', default=10)
     parser.add_argument('--data', default='./data')
     parser.add_argument('--model', default='./results/model.pth')
     parser.add_argument('--results', default='./results')
@@ -185,4 +180,4 @@ if __name__ == '__main__':
         torch.manual_seed(args.seed)
         cudnn.deterministic = True
 
-    defence_retrain(args)
+    main(args)
