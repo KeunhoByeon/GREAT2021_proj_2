@@ -100,7 +100,7 @@ class OnlineHD(object):
     def probabilities_raw(self, x: torch.Tensor, encoded: bool = False):
         '''
         Returns the probabilities of belonging to a certain class for each
-        data point in x.
+        data point in x without softmax.
 
         Args:
             x (:class:`torch.Tensor`): The data points to use. Must
@@ -110,7 +110,7 @@ class OnlineHD(object):
             encoded (bool): Specifies if input data is already encoded.
 
         Returns:
-            :class:`torch.Tensor`: The class probability of each data point.
+            :class:`torch.Tensor`: The class probability of each data point without softmax.
             Has size `(n?, classes)`.
         '''
 
