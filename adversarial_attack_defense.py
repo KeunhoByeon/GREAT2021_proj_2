@@ -27,12 +27,12 @@ def get_noise_vector(raw_prob, gt):
     # noise_prob = first_highest_prob - second_highest_prob
 
     noise_vector = torch.zeros(raw_prob.size())
-    noise_vector[range(raw_prob.shape[0]), second_highest_indices] = noise_prob
+    noise_vector[range(raw_prob.shape[0]), highest_error_indices] = noise_prob
 
     return noise_vector
 
 
-def validate(model, x_test, y_test, debug=False, debug_dir='./debug', debug_max_num=100, debug_resize_ratio = 16):
+def validate(model, x_test, y_test, debug=False, debug_dir='./debug', debug_max_num=100, debug_resize_ratio=16):
     # print('Validating...')
     t = time()
     raw_prob = model.probabilities_raw(x_test)
@@ -162,7 +162,6 @@ def main(args):
 
     # Save model object
     save_model(model, os.path.join(args.results, 'model_retrained.pth'))
-
 
 
 if __name__ == '__main__':
