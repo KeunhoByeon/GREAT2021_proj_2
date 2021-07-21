@@ -57,7 +57,7 @@ def validate(model, x_test, y_test, debug=False, debug_dir='./debug', debug_max_
         print(f'{reverse_x_test_acc = :6f}')
         noise_x_test_acc = (y_test == noise_x_yhat).float().mean().item()
         print(f'{noise_x_test_acc = :6f}')
-        print('noise_x_test corrected ({}):'.format(len(np.where(y_test == noise_x_yhat)[0])), np.where(y_test == noise_x_yhat))
+        print('noise_x_test corrected ({}): {} + a'.format(len(np.where(y_test == noise_x_yhat)[0]), np.where(y_test == noise_x_yhat)[:10]))
         first_highest_indices = raw_prob.topk(k=2, dim=1).indices[:, 0]
         second_highest_indices = raw_prob.topk(k=2, dim=1).indices[:, 1]
         if debug_max_num == -1:  # -1 for all
@@ -170,7 +170,7 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', default=10, metavar='E')
     parser.add_argument('--bootstrap', default=1.0, metavar='B')
     parser.add_argument('--one_pass_fit', default=False, metavar='O')
-    parser.add_argument('--retrain_iter', default=10)
+    parser.add_argument('--retrain_iter', default=5)
     parser.add_argument('--data', default='./data')
     parser.add_argument('--model', default='./results/model.pth')
     parser.add_argument('--results', default='./results')
