@@ -150,6 +150,9 @@ class OnlineHD(object):
 
         return self.encoder(x)
 
+    def decode(self, h: torch.Tensor):
+        return self.encoder.decode(h)
+
     def fit(self,
             x: torch.Tensor,
             y: torch.Tensor,

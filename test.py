@@ -27,10 +27,9 @@ def test(args):
 
     print('Validating...')
     t = time()
-    raw_prob = model.probabilities_raw(x_test)
+    yhat_test = model(x_test)
     t = time() - t
 
-    yhat_test = raw_prob.argmax(1)
     acc_test = (y_test == yhat_test).float().mean()
     print(f'{acc_test = :6f}')
     print(f'{t = :6f}')

@@ -5,9 +5,9 @@ import sklearn.datasets
 import sklearn.model_selection
 import sklearn.preprocessing
 import torch
+import cv2
 
-
-# loads simple mnist dataset
+# Loads simple mnist dataset
 def load_mnist(data_dir, print_info=True, save_data=True):
     try:
         # Load local data
@@ -16,30 +16,32 @@ def load_mnist(data_dir, print_info=True, save_data=True):
         x_test = torch.load(os.path.join(data_dir, 'x_test'))
         y_test = torch.load(os.path.join(data_dir, 'y_test'))
     except FileNotFoundError:
-        # fetches data
+        # Fetches data
         x, y = sklearn.datasets.fetch_openml('mnist_784', return_X_y=True)
-        y = np.array(y)
-        x = x.astype(np.float64)
-        y = y.astype(np.int64)
+        x = np.array(x).astype(np.float64)
+        y = np.array(y).astype(np.int64)
 
-        # split and normalize
+        # Split
         x, x_test, y, y_test = sklearn.model_selection.train_test_split(x, y)
-        scaler = sklearn.preprocessing.Normalizer().fit(x)
-        x = scaler.transform(x)
-        x_test = scaler.transform(x_test)
 
-        # changes data to pytorch's tensors
-        x = torch.from_numpy(x).float()
-        y = torch.from_numpy(y).long()
-        x_test = torch.from_numpy(x_test).float()
-        y_test = torch.from_numpy(y_test).long()
-
+        # Save data
         if save_data:
             os.makedirs(data_dir, exist_ok=True)
             torch.save(x, os.path.join(data_dir, 'x'))
             torch.save(y, os.path.join(data_dir, 'y'))
             torch.save(x_test, os.path.join(data_dir, 'x_test'))
             torch.save(y_test, os.path.join(data_dir, 'y_test'))
+
+    # Normalize
+    scaler = sklearn.preprocessing.Normalizer().fit(x)
+    x = scaler.transform(x)
+    x_test = scaler.transform(x_test)
+
+    # Changes data to pytorch's tensors
+    x = torch.from_numpy(x).float()
+    y = torch.from_numpy(y).long()
+    x_test = torch.from_numpy(x_test).float()
+    y_test = torch.from_numpy(y_test).long()
 
     if print_info:
         print('Train dataset Size:', list(x.size()), list(y.size()))
@@ -48,6 +50,16 @@ def load_mnist(data_dir, print_info=True, save_data=True):
         print('Test dataset Labels:', np.unique(y_test.numpy()))
 
     return x, x_test, y, y_test
+
+
+def denormalize(data, original_x):
+    min_original = np.min(original_x)
+    max_original = np.max(original_x)
+    print('min_original', min_original)
+    print('max_original', max_original)
+    print('min_data', np.min(data))
+    print('max_data', np.max(data))
+    return data * (max_original - min_original) + min_original
 
 
 # Save model state dict
@@ -78,3 +90,7 @@ def load_model(model, load_path):
     model.encoder.features = state_dict['encoder']['features']
     model.encoder.base = state_dict['encoder']['base']
     model.encoder.basis = state_dict['encoder']['basis']
+
+
+def txt_on_img(img, text, coord=(10, 30), font=cv2.FONT_HERSHEY_SIMPLEX, scale=1., color=255, line_type=2):
+    cv2.putText(img, text, coord, font, scale, color, line_type)
