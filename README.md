@@ -66,6 +66,7 @@ class OnlineHD(object):
 3-2. Since the mul operation in the encoding stage requires solving a quadratic function during decoding, two cases occur during decoding.
       So I also removed the mul operation during encoding.
       (I am not sure if I can handle it like this)
+(3-1 & 3-2: Because of this removal, the validation accuracy in the MNIST dataset decreased from about 93 to about 83.)
 3-3. There was an error due to very small decimal data, so it was rounded to 6 decimal places.
 
 4. Retrain model with x + noise data (iteratively)
