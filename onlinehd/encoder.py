@@ -63,7 +63,7 @@ class Encoder(object):
             torch.matmul(x[i:i + bsize], self.basis.T, out=temp)
             torch.add(temp, self.base, out=h[i:i + bsize])
             # h[i:i+bsize].cos_().mul_(temp.sin_())
-            h[i:i+bsize].mul_(temp)
+            # h[i:i+bsize].mul_(temp)
 
         # # DEBUG
         # x_decoded = self.decode(h)

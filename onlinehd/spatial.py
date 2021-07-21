@@ -26,27 +26,10 @@ def cos_cdist(x1 : torch.Tensor, x2 : torch.Tensor, eps : float = 1e-8):
         `dist[i,j] = cos(x1[i], x2[j])` given by the equation above.
 
     '''
-    # print('h min', x1.min())
-    # print('h max', x1.max())
 
     eps = torch.tensor(eps, device=x1.device)
     norms1 = x1.norm(dim=1).unsqueeze_(1).max(eps)
     norms2 = x2.norm(dim=1).unsqueeze_(0).max(eps)
-    # print('h min', norms1.min())
-    # print('h max', norms1.max())
     cdist = x1 @ x2.T
-    # print(eps)
-    # print(x1.size())
-    # print(x2.size())
-    # print(x1.norm(dim=1).size())
-    # print(x2.norm(dim=1).size())
-    # print(x1.norm(dim=1).unsqueeze_(1).size())
-    # print(x2.norm(dim=1).unsqueeze_(0).size())
-    # print(x1.norm(dim=1).unsqueeze_(1).max(eps).size())
-    # print(x2.norm(dim=1).unsqueeze_(0).max(eps).size())
-    # print('norms1', norms1)
-    # print('norms2', norms2)
-    # print('cdist', cdist.size(), cdist)
     cdist.div_(norms1).div_(norms2)
-    # print(cdist)
     return cdist
