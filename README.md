@@ -48,7 +48,8 @@ class OnlineHD(object):
     
 ```
 
-## Note
+## Progress Note
+- I think it seems to works because the more I retrained the model, the more noise I needed to attack the model.
 ```
 1. Getting noise probability(score) for adversarial attacks
 1-1. I've tried several times, but
