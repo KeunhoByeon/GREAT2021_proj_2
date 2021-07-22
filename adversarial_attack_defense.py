@@ -166,15 +166,15 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--lr', default=0.001, metavar='L')
-    parser.add_argument('--epochs', default=10, metavar='E')
-    parser.add_argument('--bootstrap', default=1.0, metavar='B')
-    parser.add_argument('--one_pass_fit', default=False, metavar='O')
-    parser.add_argument('--retrain_iter', default=5)
-    parser.add_argument('--data', default='./data')
-    parser.add_argument('--model', default='./results/model.pth')
-    parser.add_argument('--results', default='./results')
-    parser.add_argument('--seed', default=103)
+    parser.add_argument('--lr', default=0.001, type=float, metavar='L')
+    parser.add_argument('--epochs', default=10, type=int, metavar='E')
+    parser.add_argument('--bootstrap', default=1.0, type=float, metavar='B')
+    parser.add_argument('--one_pass_fit', default=False, type=bool, metavar='O')
+    parser.add_argument('--retrain_iter', default=5, type=int)
+    parser.add_argument('--data', default='./data', type=str)
+    parser.add_argument('--model', default='./results/model.pth', type=str)
+    parser.add_argument('--results', default='./results', type=str)
+    parser.add_argument('--seed', default=103, type=int)
     args = parser.parse_args()
 
     if args.seed is not None:
