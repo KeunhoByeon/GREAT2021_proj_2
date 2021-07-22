@@ -2,7 +2,6 @@ import argparse
 import os
 import random
 
-import cv2
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
@@ -48,13 +47,14 @@ def validate(model, x_test, y_test, print_name='Validate', debug=False, debug_di
     h_test_noised = h_test + noise_h
     x_test_noised_prob = model.probabilities_raw(h_test_noised, encoded=True)
     x_test_noised_yhat = x_test_noised_prob.argmax(1)
-    x_test_noised_acc = (y_test == x_test_noised_yhat).float().mean().item()
+    acc_test_noised = (y_test == x_test_noised_yhat).float().mean().item()
 
     noise = model.decode(noise_h)
     noise_mean = torch.mean(noise).item() * 255.
-    print("[{}]    acc x_test: {:.6f}    acc x_test_noised: {:.6f}    noise mean: {:.6f}    time: {:.2f}".format(print_name, acc_test, x_test_noised_acc, noise_mean, t))
+    print("[{}]    acc x_test: {:.6f}    acc x_test_noised: {:.6f}    noise mean: {:.6f}    time: {:.2f}".format(print_name, acc_test, acc_test_noised, noise_mean, t))
 
     if debug:
+        import cv2
         x_test_noised = model.decode(h_test_noised)
         first_highest_indices = prob.topk(k=2, dim=1).indices[:, 0]
         second_highest_indices = prob.topk(k=2, dim=1).indices[:, 1]
@@ -110,7 +110,7 @@ def validate(model, x_test, y_test, print_name='Validate', debug=False, debug_di
 
             cv2.imwrite(os.path.join(debug_dir, '{}.png'.format(i)), stack_img)
 
-    return acc_test, x_test_noised_acc, noise_mean
+    return acc_test, acc_test_noised, noise_mean
 
 
 def retrain(args, model, x, y, print_name=''):
@@ -160,8 +160,8 @@ def main(args):
     for retrain_i in range(args.retrain_iter):
         retrain(args, model, x, y, print_name='Retrain  {}/{}'.format(retrain_i + 1, args.retrain_iter))
         validate(model, x_test, y_test, print_name='Validate {}/{}'.format(retrain_i + 1, args.retrain_iter),
-                 # debug=False, debug_dir='./debug/retrain_iter_{}'.format(retrain_i), debug_max_num=100)  # No debug when validating during retraining
-                 debug=args.debug, debug_dir='./debug/retrain_iter_{}'.format(retrain_i), debug_max_num=100)
+                 # debug=False)  # No debug when validating during retraining
+                 debug=args.debug, debug_dir='./debug/retrain_iter/{}'.format(retrain_i + 1), debug_max_num=100)
 
     # Validate After Retrain
     validate(model, x_test, y_test, print_name='Validate After Retrain', debug=args.debug, debug_dir='./debug/after_retrain', debug_max_num=100)
