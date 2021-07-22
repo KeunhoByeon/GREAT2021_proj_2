@@ -11,7 +11,7 @@ from time import time
 
 import onlinehd
 from onlinehd.spatial import reverse_cos_cdist
-from utils import save_model, load_mnist, load_model, txt_on_img, hdvector2img
+from utils import save_model, load_mnist, load_model, txt_on_img
 
 
 def get_noise_probability(prob, gt, alpha=0.0001):
@@ -57,20 +57,46 @@ def validate(model, x_test, y_test, print_name='Validate', debug=False, debug_di
         first_highest_indices = prob.topk(k=2, dim=1).indices[:, 0]
         second_highest_indices = prob.topk(k=2, dim=1).indices[:, 1]
 
+        img_size = int(x_test.size()[1] ** 0.5)
+        desired_size = int(img_size * debug_resize_ratio)
+
+        # Tiled image
+        os.makedirs('./debug/x_noised_tile', exist_ok=True)
+        noised_debug_imgs = x_test_noised.cpu().detach().numpy()
+        noised_debug_imgs = noised_debug_imgs / np.amax(noised_debug_imgs, axis=1)[:, np.newaxis] * 255.
+        noised_debug_imgs = noised_debug_imgs.reshape(-1, img_size, img_size)
+        tile_img = noised_debug_imgs[:100].reshape(10, 10, img_size, img_size)
+        tile_img = cv2.vconcat([cv2.hconcat(tmp) for tmp in tile_img])
+        tile_img = cv2.resize(tile_img, (tile_img.shape[0] * 2, tile_img.shape[1] * 2))
+        title_img = np.zeros((60, tile_img.shape[1]))
+        info_img = np.zeros((120, tile_img.shape[1]))
+        txt_on_img(title_img, print_name)
+        txt_on_img(info_img, "acc x_test: {:.6f}".format(acc_test), coord=(10, 30 * 2))
+        txt_on_img(info_img, "noise mean: {:.6f}".format(noise_mean), coord=(10, 30 * 3))
+        tile_img = np.vstack((title_img, tile_img, info_img))
+        cv2.imwrite(os.path.join('./debug/x_noised_tile', '{}.png'.format(os.path.basename(debug_dir))), tile_img)
+
+        # Stacked image
+        os.makedirs(debug_dir, exist_ok=True)
         if debug_max_num == -1:  # -1 for all
             debug_max_num = len(y_test)
 
-        os.makedirs(debug_dir, exist_ok=True)
+        imgs_x_test = x_test.cpu().detach().numpy().reshape(-1, img_size, img_size)
+        imgs_noise = noise.cpu().detach().numpy().reshape(-1, img_size, img_size)
+        imgs_x_test_noised = x_test_noised.cpu().detach().numpy().reshape(-1, img_size, img_size)
+
+        def process_debug_img(img, dsize, title):
+            img = cv2.resize(img, (dsize, dsize))
+            img = img / np.max(img) * 255.
+            txt_on_img(img, title)
+            return img
+
         for i in tqdm(range(len(y_test)), desc='Debugging', total=debug_max_num):
             if i >= debug_max_num:
                 break
-
-            img_x_test = hdvector2img(x_test[i].cpu().detach().numpy(), resize_ratio=debug_resize_ratio)
-            img_noise = hdvector2img(noise[i].cpu().detach().numpy(), resize_ratio=debug_resize_ratio)
-            img_x_test_noised = hdvector2img(x_test_noised[i].cpu().detach().numpy(), resize_ratio=debug_resize_ratio)
-            txt_on_img(img_x_test, 'x_test')
-            txt_on_img(img_noise, 'noise')
-            txt_on_img(img_x_test_noised, 'x_test_noised')
+            img_x_test = process_debug_img(imgs_x_test[i], desired_size, 'x_test')
+            img_noise = process_debug_img(imgs_noise[i], desired_size, 'noise')
+            img_x_test_noised = process_debug_img(imgs_x_test_noised[i], desired_size, 'x_test_noised')
             stack_img = np.hstack((img_x_test, img_noise, img_x_test_noised))
 
             text_img = np.zeros((120, stack_img.shape[1]))
@@ -136,7 +162,7 @@ def main(args):
                  debug=args.debug, debug_dir='./debug/retrain_iter_{}'.format(retrain_i), debug_max_num=100)
 
     # Validate After Retrain
-    validate(model, x_test, y_test, print_name='Validate After Retrain',debug=args.debug, debug_dir='./debug/after_retrain', debug_max_num=100)
+    validate(model, x_test, y_test, print_name='Validate After Retrain', debug=args.debug, debug_dir='./debug/after_retrain', debug_max_num=100)
 
     # Save model object
     save_model(model, os.path.join(args.results, 'model_retrained.pth'))

@@ -95,12 +95,3 @@ def load_model(model, load_path):
 
 def txt_on_img(img, text, coord=(10, 30), font=cv2.FONT_HERSHEY_SIMPLEX, scale=1., color=255, line_type=2):
     cv2.putText(img, text, coord, font, scale, color, line_type)
-
-
-def hdvector2img(vector, denormalize=True, resize_ratio=1):
-    img = vector.reshape(-1, int(len(vector) ** 0.5))
-    if denormalize:
-        img = img / np.max(img) * 255.
-    if resize_ratio != 1:
-        img = cv2.resize(img, (img.shape[0] * resize_ratio, img.shape[1] * resize_ratio))
-    return img
