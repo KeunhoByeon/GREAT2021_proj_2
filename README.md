@@ -52,24 +52,19 @@ class OnlineHD(object):
 - I think it seems to works because the more I retrained the model, the more noise I needed to attack the model.
 ```
 1. Getting noise probability(score) for adversarial attacks
-1-1. I've tried several times, but
-      noise_prob = first_highest_prob - second_highest_prob
-      doesn't seem to work well, so I used
-      highest_error_indices = np.where(gt == first_highest_indices, second_highest_indices, first_highest_indices)
-      noise_prob = 1.0 - prob[range(prob.shape[0]), highest_error_indices]
+1-1. noise_prob = gt_prob - highest_error_prob + alpha (default alpha value is 0.0001 now.) 
 
-2. Reversing cos_cdist
+2. Reversing cos_cdist (noise probability -> noise h)
 2-1. I think when reversing x from distance, there seems to be a relatively large error due to pinverse() in cdist @ x2.T.pinverse() operation.
 
-3. Decoding data
-3-1. Removed cos and sin operations.
-3-2. Since the mul operation in the encoding stage requires solving a quadratic function during decoding, two cases occur during decoding.
-      So I also removed the mul operation during encoding.
-      (I am not sure if I can handle it like this)
-(3-1 & 3-2: Because of this removal, the validation accuracy in the MNIST dataset decreased from about 93 to about 83.)
-3-3. There was an error due to very small decimal data, so it was rounded to 6 decimal places.
+3. Retrain model with h_noised(= h + noise_h) (iteratively)
 
-4. Retrain model with x + noise data (iteratively)
+* Encoding, Decoding data
+- Removed cos and sin operations.
+- Since the mul operation in the encoding stage requires solving a quadratic function during decoding, two cases occur during decoding.
+  So I also removed the mul operation during encoding. (I am not sure if I can handle it like this)
+- There was an error due to very small decimal data, so it was rounded to 6 decimal places.
+(Because of these changes, the validation accuracy in the MNIST dataset decreased from about 93 to about 83.)
 ```
 
 ## TODO
@@ -97,9 +92,8 @@ i.png (i is the index of test data)
 Image title
 ```
 img_x_test: Original image
-img_reverse_x_test: Decoded image
 img_noise: Noise image
-img_noise_x_test: Original + Noise image
+img_x_test_noised: Original + Noise image
 ```
 
 Info
@@ -109,13 +103,7 @@ img_x_test
 - 1st highest pred: First highest probability prediction label of the original image
 - 2nd highest pred: Second highest probability prediction label of the original image
 
-img_reverse_x_test
-- reverse image pred: First highest probability prediction label of the decoded image
-
-img_noise_x_test
-- Noise image pred: First highest probability prediction label of the original+noise image
-
-Original image probabiliy: Predicted probabilities of the original image
-Noise image probabiliy: Predicted probabilities of the original+noise image
+img_x_test_noised
+- Noised image pred: First highest probability prediction label of the original+noise image
 ```
 

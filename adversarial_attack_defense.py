@@ -144,11 +144,11 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--lr', default=0.035, type=float, metavar='L')
+    parser.add_argument('--lr', default=0.02, type=float, metavar='L')
     parser.add_argument('--epochs', default=30, type=int, metavar='E')
     parser.add_argument('--bootstrap', default=1.0, type=float, metavar='B')
     parser.add_argument('--one_pass_fit', default=False, type=bool, metavar='O')
-    parser.add_argument('--retrain_iter', default=20, type=int)
+    parser.add_argument('--retrain_iter', default=10, type=int)
     parser.add_argument('--alpha', default=0.0001, type=float)
     parser.add_argument('--data', default='./data', type=str)
     parser.add_argument('--model', default='./results/model.pth', type=str)
