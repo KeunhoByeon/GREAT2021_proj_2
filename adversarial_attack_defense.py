@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 from tqdm import tqdm
+from time import time
 
 import onlinehd
 from onlinehd.spatial import reverse_cos_cdist
@@ -31,7 +32,7 @@ def get_noise_probability(raw_prob, gt, alpha=0.0001):
     return noise_probability
 
 
-def validate(model, x_test, y_test, debug=False, debug_dir='./debug', debug_max_num=100, debug_resize_ratio=16):
+def validate(model, x_test, y_test, print_name='Validate', debug=False, debug_dir='./debug', debug_max_num=100, debug_resize_ratio=16):
     h_test = model.encode(x_test)
     raw_prob = model.probabilities_raw(h_test, encoded=True)
 
@@ -48,8 +49,8 @@ def validate(model, x_test, y_test, debug=False, debug_dir='./debug', debug_max_
     x_test_noised_acc = (y_test == x_test_noised_yhat).float().mean().item()
 
     noise = model.decode(noise_h)
-    noise_sum = torch.sum(noise).item()
-    print("acc x_test: {:.6f}\tacc x_test_noised: {:.6f}\tnoise sum: {:.2f}".format(acc_test, x_test_noised_acc, noise_sum))
+    noise_mean = torch.mean(noise).item()
+    print("[{}]    acc x_test: {:.6f}    acc x_test_noised: {:.6f}    noise mean: {:.6f}".format(print_name, acc_test, x_test_noised_acc, noise_mean))
 
     if debug:
         first_highest_indices = raw_prob.topk(k=2, dim=1).indices[:, 0]
@@ -95,10 +96,11 @@ def validate(model, x_test, y_test, debug=False, debug_dir='./debug', debug_max_
             os.makedirs(debug_dir, exist_ok=True)
             cv2.imwrite(os.path.join(debug_dir, '{}.png'.format(debug_index)), stack_img)
 
-    return acc_test, x_test_noised_acc, noise_sum
+    return acc_test, x_test_noised_acc, noise_mean
 
 
-def retrain(args, model, x, y):
+def retrain(args, model, x, y, print_name=''):
+    t = time()
     h = model.encode(x)
     raw_prob = model.probabilities_raw(h, encoded=True)
 
@@ -110,10 +112,11 @@ def retrain(args, model, x, y):
     h_noised = h + noise_h
 
     model = model.fit(h_noised, y, encoded=True, bootstrap=args.bootstrap, lr=args.lr, epochs=args.epochs, one_pass_fit=args.one_pass_fit)
+    t = time() - t
 
     yhat = model(x)
     acc_after_retrain = (y == yhat).float().mean()
-    print("acc: {:.6f}\tacc after retrain: {:.6f}".format(acc, acc_after_retrain))
+    print("[{}]    acc: {:.6f}    acc after retrain: {:.6f}    time: {:.2f}".format(print_name, acc, acc_after_retrain, t))
 
     return acc, acc_after_retrain
 
@@ -136,17 +139,17 @@ def main(args):
         model = model.to('cuda')
         print('Using GPU!')
 
-    print('[Validate Before Retrain]', end='\t')
-    validate(model, x_test, y_test, debug=args.debug, debug_dir='./debug_before_retrain', debug_max_num=100)
+    # Validate Before Retrain
+    validate(model, x_test, y_test, print_name='Validate Before Retrain', debug=args.debug, debug_dir='./debug_before_retrain', debug_max_num=100)
+
+    # Retrain
     for retrain_i in range(args.retrain_iter):
-        print('[Retrain  {}/{}]'.format(retrain_i + 1, args.retrain_iter), end='\t')
-        retrain(args, model, x, y)
+        retrain(args, model, x, y, print_name='Retrain  {}/{}'.format(retrain_i + 1, args.retrain_iter))
+        validate(model, x_test, y_test, print_name='Validate {}/{}'.format(retrain_i + 1, args.retrain_iter),
+                 debug=False, debug_dir='./debug_after_retrain_{}'.format(retrain_i), debug_max_num=100)  # No debug when validating during retraining
 
-        print('[Validate {}/{}]'.format(retrain_i + 1, args.retrain_iter), end='\t')
-        validate(model, x_test, y_test, debug=False, debug_dir='./debug_after_retrain_{}'.format(retrain_i))  # No debug during retraining
-
-    print('[Validate After Retrain]', end='\t')
-    validate(model, x_test, y_test, debug=args.debug, debug_dir='./debug_after_retrain', debug_max_num=100)
+    # Validate After Retrain
+    validate(model, x_test, y_test, print_name='Validate After Retrain',debug=args.debug, debug_dir='./debug_after_retrain', debug_max_num=100)
 
     # Save model object
     save_model(model, os.path.join(args.results, 'model_retrained.pth'))
@@ -154,11 +157,11 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--lr', default=0.035, type=float, metavar='L')
+    parser.add_argument('--lr', default=0.02, type=float, metavar='L')
     parser.add_argument('--epochs', default=30, type=int, metavar='E')
     parser.add_argument('--bootstrap', default=1.0, type=float, metavar='B')
     parser.add_argument('--one_pass_fit', default=False, type=bool, metavar='O')
-    parser.add_argument('--retrain_iter', default=30, type=int)
+    parser.add_argument('--retrain_iter', default=20, type=int)
     parser.add_argument('--alpha', default=0.0001, type=float)
     parser.add_argument('--data', default='./data', type=str)
     parser.add_argument('--model', default='./results/model.pth', type=str)
