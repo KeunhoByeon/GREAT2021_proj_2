@@ -9,8 +9,10 @@ import torch
 
 
 # Loads simple mnist dataset
-def load_mnist(data_dir, print_info=False, save_data=True):
+def load_mnist(data_dir, print_info=False, save_data=True, use_new=False):
     try:
+        if use_new:
+            raise FileNotFoundError
         # Load local data
         x = torch.load(os.path.join(data_dir, 'x'))
         y = torch.load(os.path.join(data_dir, 'y'))
@@ -56,10 +58,6 @@ def load_mnist(data_dir, print_info=False, save_data=True):
 def denormalize(data, original_x):
     min_original = np.min(original_x)
     max_original = np.max(original_x)
-    print('min_original', min_original)
-    print('max_original', max_original)
-    print('min_data', np.min(data))
-    print('max_data', np.max(data))
     return data * (max_original - min_original) + min_original
 
 
