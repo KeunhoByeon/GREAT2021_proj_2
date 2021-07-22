@@ -91,7 +91,7 @@ def validate(model, x_test, y_test, print_name='Validate', debug=False, debug_di
             txt_on_img(img, title)
             return img
 
-        for i in tqdm(range(len(y_test)), desc='Debugging', total=debug_max_num):
+        for i in tqdm(range(len(y_test)), desc='Debugging', total=debug_max_num, leave=False):
             if i >= debug_max_num:
                 break
             img_x_test = process_debug_img(imgs_x_test[i], desired_size, 'x_test')
@@ -174,7 +174,7 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', default=30, type=int, metavar='E')
     parser.add_argument('--bootstrap', default=1.0, type=float, metavar='B')
     parser.add_argument('--one_pass_fit', default=False, type=bool, metavar='O')
-    parser.add_argument('--retrain_iter', default=10, type=int)
+    parser.add_argument('--retrain_iter', default=30, type=int)
     parser.add_argument('--alpha', default=0.0001, type=float)
     parser.add_argument('--data', default='./data', type=str)
     parser.add_argument('--model', default='./results/model.pth', type=str)
