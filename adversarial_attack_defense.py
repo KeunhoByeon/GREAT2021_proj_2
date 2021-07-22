@@ -34,11 +34,13 @@ def get_noise_probability(prob, gt, alpha=0.0001):
 
 
 def validate(model, x_test, y_test, print_name='Validate', debug=False, debug_dir='./debug', debug_max_num=100, debug_resize_ratio=16):
+    t = time()
     h_test = model.encode(x_test)
     prob = model.probabilities_raw(h_test, encoded=True)
 
     yhat_test = prob.argmax(1)
     acc_test = (y_test == yhat_test).float().mean()
+    t = time() - t
 
     noise_probability = get_noise_probability(prob, y_test, alpha=args.alpha)
     noise_h = reverse_cos_cdist(noise_probability, model.encode(x_test), model.model)
@@ -50,7 +52,7 @@ def validate(model, x_test, y_test, print_name='Validate', debug=False, debug_di
 
     noise = model.decode(noise_h)
     noise_mean = torch.mean(noise).item() * 255.
-    print("[{}]    acc x_test: {:.6f}    acc x_test_noised: {:.6f}    noise mean: {:.6f}".format(print_name, acc_test, x_test_noised_acc, noise_mean))
+    print("[{}]    acc x_test: {:.6f}    acc x_test_noised: {:.6f}    noise mean: {:.6f}    time: {:.2f}".format(print_name, acc_test, x_test_noised_acc, noise_mean, t))
 
     if debug:
         x_test_noised = model.decode(h_test_noised)
