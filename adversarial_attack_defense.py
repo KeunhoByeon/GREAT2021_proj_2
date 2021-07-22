@@ -42,60 +42,45 @@ def validate(model, x_test, y_test, print_name='Validate', debug=False, debug_di
 
     noise_probability = get_noise_probability(prob, y_test, alpha=args.alpha)
     noise_h = reverse_cos_cdist(noise_probability, model.encode(x_test), model.model)
-    h_test_noised = h_test + noise_h
-    x_test_noised = model.decode(h_test_noised)
 
+    h_test_noised = h_test + noise_h
     x_test_noised_prob = model.probabilities_raw(h_test_noised, encoded=True)
     x_test_noised_yhat = x_test_noised_prob.argmax(1)
     x_test_noised_acc = (y_test == x_test_noised_yhat).float().mean().item()
 
     noise = model.decode(noise_h)
-    noise_mean = torch.mean(noise).item()
+    noise_mean = torch.mean(noise).item() * 255.
     print("[{}]    acc x_test: {:.6f}    acc x_test_noised: {:.6f}    noise mean: {:.6f}".format(print_name, acc_test, x_test_noised_acc, noise_mean))
 
     if debug:
+        x_test_noised = model.decode(h_test_noised)
         first_highest_indices = prob.topk(k=2, dim=1).indices[:, 0]
         second_highest_indices = prob.topk(k=2, dim=1).indices[:, 1]
 
         if debug_max_num == -1:  # -1 for all
             debug_max_num = len(y_test)
 
-        for debug_index in tqdm(range(len(y_test)), desc='Debugging', total=debug_max_num):
-            if debug_index >= debug_max_num:
+        os.makedirs(debug_dir, exist_ok=True)
+        for i in tqdm(range(len(y_test)), desc='Debugging', total=debug_max_num):
+            if i >= debug_max_num:
                 break
 
-            gt = y_test[debug_index].item()
-            probability = prob[debug_index].cpu().detach().numpy()
-            first_high = first_highest_indices[debug_index].item()
-            second_high = second_highest_indices[debug_index].item()
-
-            noised_yhat = x_test_noised_yhat[debug_index].item()
-            noised_probability = x_test_noised_prob[debug_index].cpu().detach().numpy()
-
-            img_x_test = hdvector2img(x_test[debug_index].cpu().detach().numpy(), resize_ratio=debug_resize_ratio)
-            img_noise = hdvector2img(noise[debug_index].cpu().detach().numpy(), resize_ratio=debug_resize_ratio)
-            img_x_test_noised = hdvector2img(x_test_noised[debug_index].cpu().detach().numpy(), resize_ratio=debug_resize_ratio)
+            img_x_test = hdvector2img(x_test[i].cpu().detach().numpy(), resize_ratio=debug_resize_ratio)
+            img_noise = hdvector2img(noise[i].cpu().detach().numpy(), resize_ratio=debug_resize_ratio)
+            img_x_test_noised = hdvector2img(x_test_noised[i].cpu().detach().numpy(), resize_ratio=debug_resize_ratio)
             txt_on_img(img_x_test, 'x_test')
             txt_on_img(img_noise, 'noise')
             txt_on_img(img_x_test_noised, 'x_test_noised')
-
             stack_img = np.hstack((img_x_test, img_noise, img_x_test_noised))
 
-            l = img_x_test.shape[0]
-            text_img = np.zeros((stack_img.shape[0] // 3 * 2, stack_img.shape[1]))
-            txt_on_img(text_img, 'Ground truth: {}'.format(gt), coord=(10, 30 * 1))
-            txt_on_img(text_img, '1st highest pred: {}'.format(first_high), coord=(10, 30 * 2))
-            txt_on_img(text_img, '2st highest pred: {}'.format(second_high), coord=(10, 30 * 3))
-            txt_on_img(text_img, 'Noised image pred: {}'.format(noised_yhat), coord=(10 + l * 2, 30 * 1))
-            txt_on_img(text_img, 'Original image probability:', coord=(10, 30 * 5))
-            txt_on_img(text_img, '{}'.format(probability), coord=(10, 30 * 6), scale=0.6)
-            txt_on_img(text_img, 'Noised image probability:', coord=(10, 30 * 8))
-            txt_on_img(text_img, '{}'.format(noised_probability), coord=(10, 30 * 9), scale=0.6)
-
+            text_img = np.zeros((120, stack_img.shape[1]))
+            txt_on_img(text_img, 'Ground truth: {}'.format(y_test[i].item()), coord=(10, 30 * 1))
+            txt_on_img(text_img, '1st highest pred: {}'.format(first_highest_indices[i].item()), coord=(10, 30 * 2))
+            txt_on_img(text_img, '2st highest pred: {}'.format(second_highest_indices[i].item()), coord=(10, 30 * 3))
+            txt_on_img(text_img, 'Noised image pred: {}'.format(x_test_noised_yhat[i].item()), coord=(10 + img_x_test.shape[0] * 2, 30 * 1))
             stack_img = np.vstack((stack_img, text_img))
 
-            os.makedirs(debug_dir, exist_ok=True)
-            cv2.imwrite(os.path.join(debug_dir, '{}.png'.format(debug_index)), stack_img)
+            cv2.imwrite(os.path.join(debug_dir, '{}.png'.format(i)), stack_img)
 
     return acc_test, x_test_noised_acc, noise_mean
 
@@ -141,16 +126,17 @@ def main(args):
         print('Using GPU!')
 
     # Validate Before Retrain
-    validate(model, x_test, y_test, print_name='Validate Before Retrain', debug=args.debug, debug_dir='./debug_before_retrain', debug_max_num=100)
+    validate(model, x_test, y_test, print_name='Validate Before Retrain', debug=args.debug, debug_dir='./debug/before_retrain', debug_max_num=100)
 
     # Retrain
     for retrain_i in range(args.retrain_iter):
         retrain(args, model, x, y, print_name='Retrain  {}/{}'.format(retrain_i + 1, args.retrain_iter))
         validate(model, x_test, y_test, print_name='Validate {}/{}'.format(retrain_i + 1, args.retrain_iter),
-                 debug=False, debug_dir='./debug_after_retrain_{}'.format(retrain_i), debug_max_num=100)  # No debug when validating during retraining
+                 # debug=False, debug_dir='./debug/retrain_iter_{}'.format(retrain_i), debug_max_num=100)  # No debug when validating during retraining
+                 debug=args.debug, debug_dir='./debug/retrain_iter_{}'.format(retrain_i), debug_max_num=100)
 
     # Validate After Retrain
-    validate(model, x_test, y_test, print_name='Validate After Retrain',debug=args.debug, debug_dir='./debug_after_retrain', debug_max_num=100)
+    validate(model, x_test, y_test, print_name='Validate After Retrain',debug=args.debug, debug_dir='./debug/after_retrain', debug_max_num=100)
 
     # Save model object
     save_model(model, os.path.join(args.results, 'model_retrained.pth'))
@@ -158,7 +144,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--lr', default=0.02, type=float, metavar='L')
+    parser.add_argument('--lr', default=0.035, type=float, metavar='L')
     parser.add_argument('--epochs', default=30, type=int, metavar='E')
     parser.add_argument('--bootstrap', default=1.0, type=float, metavar='B')
     parser.add_argument('--one_pass_fit', default=False, type=bool, metavar='O')
