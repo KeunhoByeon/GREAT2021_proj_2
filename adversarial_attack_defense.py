@@ -14,32 +14,33 @@ from onlinehd.spatial import reverse_cos_cdist
 from utils import save_model, load_mnist, load_model, txt_on_img, hdvector2img
 
 
-def get_noise_probability(raw_prob, gt, alpha=0.0001):
-    first_highest_indexes = raw_prob.topk(k=2, dim=1).indices[:, 0]
-    second_highest_indexes = raw_prob.topk(k=2, dim=1).indices[:, 1]
-    highest_error_indexes = np.where(gt == first_highest_indexes, second_highest_indexes, first_highest_indexes)
+def get_noise_probability(prob, gt, alpha=0.0001):
+    first_high = prob.topk(k=2, dim=1).indices[:, 0]
+    second_high = prob.topk(k=2, dim=1).indices[:, 1]
+    highest_error_label = np.where(gt == first_high, second_high, first_high)  # Error label with highest probability
 
-    # noise_prob = 1.0 - raw_prob[range(raw_prob.shape[0]), highest_error_indices]
+    # # Do not use it anymore
+    # noise_prob = 1.0 - prob[range(prob.shape[0]), highest_error_indexes]
 
-    gt_prob = raw_prob[range(raw_prob.shape[0]), gt]
-    highest_error_prob = raw_prob[range(raw_prob.shape[0]), highest_error_indexes]
+    gt_prob = prob[range(prob.shape[0]), gt]
+    highest_error_prob = prob[range(prob.shape[0]), highest_error_label]
     noise_prob = gt_prob - highest_error_prob + alpha
     noise_prob = noise_prob.clamp(min=0., max=1.)
 
-    noise_probability = torch.zeros(raw_prob.size())
-    noise_probability[range(raw_prob.shape[0]), highest_error_indexes] = noise_prob
+    noise_probability = torch.zeros(prob.size())
+    noise_probability[range(prob.shape[0]), highest_error_label] = noise_prob
 
     return noise_probability
 
 
 def validate(model, x_test, y_test, print_name='Validate', debug=False, debug_dir='./debug', debug_max_num=100, debug_resize_ratio=16):
     h_test = model.encode(x_test)
-    raw_prob = model.probabilities_raw(h_test, encoded=True)
+    prob = model.probabilities_raw(h_test, encoded=True)
 
-    yhat_test = raw_prob.argmax(1)
+    yhat_test = prob.argmax(1)
     acc_test = (y_test == yhat_test).float().mean()
 
-    noise_probability = get_noise_probability(raw_prob, y_test, alpha=args.alpha)
+    noise_probability = get_noise_probability(prob, y_test, alpha=args.alpha)
     noise_h = reverse_cos_cdist(noise_probability, model.encode(x_test), model.model)
     h_test_noised = h_test + noise_h
     x_test_noised = model.decode(h_test_noised)
@@ -53,8 +54,8 @@ def validate(model, x_test, y_test, print_name='Validate', debug=False, debug_di
     print("[{}]    acc x_test: {:.6f}    acc x_test_noised: {:.6f}    noise mean: {:.6f}".format(print_name, acc_test, x_test_noised_acc, noise_mean))
 
     if debug:
-        first_highest_indices = raw_prob.topk(k=2, dim=1).indices[:, 0]
-        second_highest_indices = raw_prob.topk(k=2, dim=1).indices[:, 1]
+        first_highest_indices = prob.topk(k=2, dim=1).indices[:, 0]
+        second_highest_indices = prob.topk(k=2, dim=1).indices[:, 1]
 
         if debug_max_num == -1:  # -1 for all
             debug_max_num = len(y_test)
@@ -64,30 +65,30 @@ def validate(model, x_test, y_test, print_name='Validate', debug=False, debug_di
                 break
 
             gt = y_test[debug_index].item()
-            raw_probability = raw_prob[debug_index].cpu().detach().numpy()
-            first_highest_index = first_highest_indices[debug_index].item()
-            second_highest_index = second_highest_indices[debug_index].item()
+            probability = prob[debug_index].cpu().detach().numpy()
+            first_high = first_highest_indices[debug_index].item()
+            second_high = second_highest_indices[debug_index].item()
 
             noised_yhat = x_test_noised_yhat[debug_index].item()
             noised_probability = x_test_noised_prob[debug_index].cpu().detach().numpy()
 
             img_x_test = hdvector2img(x_test[debug_index].cpu().detach().numpy(), resize_ratio=debug_resize_ratio)
             img_noise = hdvector2img(noise[debug_index].cpu().detach().numpy(), resize_ratio=debug_resize_ratio)
-            img_noise_x_test = hdvector2img(x_test_noised[debug_index].cpu().detach().numpy(), resize_ratio=debug_resize_ratio)
-            txt_on_img(img_x_test, 'img_x_test')
-            txt_on_img(img_noise, 'img_noise')
-            txt_on_img(img_noise_x_test, 'img_noise_x_test')
+            img_x_test_noised = hdvector2img(x_test_noised[debug_index].cpu().detach().numpy(), resize_ratio=debug_resize_ratio)
+            txt_on_img(img_x_test, 'x_test')
+            txt_on_img(img_noise, 'noise')
+            txt_on_img(img_x_test_noised, 'x_test_noised')
 
-            stack_img = np.hstack((img_x_test, img_noise, img_noise_x_test))
+            stack_img = np.hstack((img_x_test, img_noise, img_x_test_noised))
 
             l = img_x_test.shape[0]
             text_img = np.zeros((stack_img.shape[0] // 3 * 2, stack_img.shape[1]))
             txt_on_img(text_img, 'Ground truth: {}'.format(gt), coord=(10, 30 * 1))
-            txt_on_img(text_img, '1st highest pred: {}'.format(first_highest_index), coord=(10, 30 * 2))
-            txt_on_img(text_img, '2st highest pred: {}'.format(second_highest_index), coord=(10, 30 * 3))
+            txt_on_img(text_img, '1st highest pred: {}'.format(first_high), coord=(10, 30 * 2))
+            txt_on_img(text_img, '2st highest pred: {}'.format(second_high), coord=(10, 30 * 3))
             txt_on_img(text_img, 'Noised image pred: {}'.format(noised_yhat), coord=(10 + l * 2, 30 * 1))
             txt_on_img(text_img, 'Original image probability:', coord=(10, 30 * 5))
-            txt_on_img(text_img, '{}'.format(raw_probability), coord=(10, 30 * 6), scale=0.6)
+            txt_on_img(text_img, '{}'.format(probability), coord=(10, 30 * 6), scale=0.6)
             txt_on_img(text_img, 'Noised image probability:', coord=(10, 30 * 8))
             txt_on_img(text_img, '{}'.format(noised_probability), coord=(10, 30 * 9), scale=0.6)
 
@@ -102,12 +103,12 @@ def validate(model, x_test, y_test, print_name='Validate', debug=False, debug_di
 def retrain(args, model, x, y, print_name=''):
     t = time()
     h = model.encode(x)
-    raw_prob = model.probabilities_raw(h, encoded=True)
+    prob = model.probabilities_raw(h, encoded=True)
 
-    yhat = raw_prob.argmax(1)
+    yhat = prob.argmax(1)
     acc = (y == yhat).float().mean()
 
-    noise_probability = get_noise_probability(raw_prob, y, alpha=args.alpha)
+    noise_probability = get_noise_probability(prob, y, alpha=args.alpha)
     noise_h = reverse_cos_cdist(noise_probability, model.encode(x), model.model)
     h_noised = h + noise_h
 
