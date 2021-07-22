@@ -15,7 +15,7 @@ python3 test.py
 
 ### Step 3. Retrain
 ```
-python3 adversarial_attack_defense.py
+python3 adversarial_attack_defense.py  --debug
 ```
 
 ## Added or changed codes in ./onlinehd

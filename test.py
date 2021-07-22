@@ -18,8 +18,6 @@ def test(args):
     load_model(model, args.model)
 
     if torch.cuda.is_available():
-        x = x.cuda()
-        y = y.cuda()
         x_test = x_test.cuda()
         y_test = y_test.cuda()
         model = model.to('cuda')
