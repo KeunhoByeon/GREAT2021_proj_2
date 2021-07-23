@@ -36,26 +36,41 @@ def validate(model, x_test, y_test, print_name='Validate', debug=False, debug_di
     t = time()
     h_test = model.encode(x_test)
     prob = model.probabilities_raw(h_test, encoded=True)
-
     yhat_test = prob.argmax(1)
     acc_test = (y_test == yhat_test).float().mean()
-    t = time() - t
 
-    noise_probability = get_noise_probability(prob, y_test, alpha=args.alpha)
-    noise_h = reverse_cos_cdist(noise_probability, model.encode(x_test), model.model)
-
+    noise_prob = get_noise_probability(prob, y_test, alpha=args.alpha)
+    noise_h = reverse_cos_cdist(noise_prob, h_test, model.model)
     h_test_noised = h_test + noise_h
     x_test_noised_prob = model.probabilities_raw(h_test_noised, encoded=True)
+    x_test_noised = model.decode(h_test_noised)
+    noise_x = x_test - x_test_noised
+
+    # # 1. This code supposed to work, but it doesn't.
+    # noise_prob = get_noise_probability(prob, y_test, alpha=args.alpha)
+    # prob_noised = prob + noise_prob
+    # h_test_noised = reverse_cos_cdist(prob_noised, h_test, model.model)
+    # x_test_noised = model.decode(h_test_noised)
+    # x_test_noised_prob = model.probabilities_raw(x_test_noised)
+    # noise_x = x_test - x_test_noised
+
+    # # 2. This code doesn't work either.
+    # noise_prob = get_noise_probability(prob, y_test, alpha=args.alpha)
+    # noise_h = reverse_cos_cdist(noise_prob, h_test, model.model)
+    # noise_x = model.decode(noise_h)
+    # x_test_noised = x_test + noise_x
+    # h_test_noised = model.encode(x_test_noised)
+    # x_test_noised_prob = model.probabilities_raw(h_test_noised, encoded=True)
+
+    t = time() - t
+
+    noise_mean = torch.mean(torch.abs(noise_x)).item()
     x_test_noised_yhat = x_test_noised_prob.argmax(1)
     acc_test_noised = (y_test == x_test_noised_yhat).float().mean().item()
-
-    noise = model.decode(noise_h)
-    noise_mean = torch.mean(noise).item() * 255.
     print("[{}]    acc x_test: {:.6f}    acc x_test_noised: {:.6f}    noise mean: {:.6f}    time: {:.2f}".format(print_name, acc_test, acc_test_noised, noise_mean, t))
 
     if debug:
         import cv2
-        x_test_noised = model.decode(h_test_noised)
         first_highest_indices = prob.topk(k=2, dim=1).indices[:, 0]
         second_highest_indices = prob.topk(k=2, dim=1).indices[:, 1]
 
@@ -65,18 +80,22 @@ def validate(model, x_test, y_test, print_name='Validate', debug=False, debug_di
         # Tiled image
         os.makedirs('./debug/x_noised_tile', exist_ok=True)
         noised_debug_imgs = x_test_noised.cpu().detach().numpy()
+        # noised_debug_imgs = (noised_debug_imgs - np.amin(noised_debug_imgs, axis=1)[:, np.newaxis]) \
+        #                     / (np.amax(noised_debug_imgs, axis=1)[:, np.newaxis] - np.amin(noised_debug_imgs, axis=1)[:, np.newaxis]) * 255.
         noised_debug_imgs = noised_debug_imgs / np.amax(noised_debug_imgs, axis=1)[:, np.newaxis] * 255.
         noised_debug_imgs = noised_debug_imgs.reshape(-1, img_size, img_size)
         tile_img = noised_debug_imgs[:100].reshape(10, 10, img_size, img_size)
         tile_img = cv2.vconcat([cv2.hconcat(tmp) for tmp in tile_img])
         tile_img = cv2.resize(tile_img, (tile_img.shape[0] * 2, tile_img.shape[1] * 2))
-        title_img = np.zeros((120, tile_img.shape[1]))
-        info_img = np.zeros((120, tile_img.shape[1]))
-        txt_on_img(title_img, "X_test + Noise", coord=(10, 30 * 1))
-        txt_on_img(title_img, print_name, coord=(10, int(30 * 2.5)))
+
+        info_img = np.zeros((180, tile_img.shape[1]))
+        txt_on_img(info_img, "[{}]".format(print_name), coord=(10, 30 * 1))
         txt_on_img(info_img, "acc x_test: {:.6f}".format(acc_test), coord=(10, 30 * 2))
-        txt_on_img(info_img, "noise mean: {:.6f}".format(noise_mean), coord=(10, 30 * 3))
-        tile_img = np.vstack((title_img, tile_img, info_img))
+        txt_on_img(info_img, "acc x_test_noised: {:.6f}".format(acc_test_noised), coord=(10, 30 * 3))
+        txt_on_img(info_img, "noise mean: {:.6f}".format(noise_mean), coord=(10, 30 * 4))
+        txt_on_img(info_img, "x_test_noised ({:.2f} ~ {:.2f})".format(x_test_noised.min(), x_test_noised.max()), coord=(10, 30 * 5))
+
+        tile_img = np.vstack((tile_img, info_img))
         cv2.imwrite(os.path.join('./debug/x_noised_tile', '{}.png'.format(os.path.basename(debug_dir))), tile_img)
 
         # Stacked image
@@ -85,12 +104,12 @@ def validate(model, x_test, y_test, print_name='Validate', debug=False, debug_di
             debug_max_num = len(y_test)
 
         imgs_x_test = x_test.cpu().detach().numpy().reshape(-1, img_size, img_size)
-        imgs_noise = noise.cpu().detach().numpy().reshape(-1, img_size, img_size)
+        imgs_noise = noise_x.cpu().detach().numpy().reshape(-1, img_size, img_size)
         imgs_x_test_noised = x_test_noised.cpu().detach().numpy().reshape(-1, img_size, img_size)
 
         def process_debug_img(img, dsize, title):
             img = cv2.resize(img, (dsize, dsize))
-            img = img / np.max(img) * 255.
+            img = (img - np.min(img)) / (np.max(img) - np.min(img)) * 255.
             txt_on_img(img, title)
             return img
 
@@ -122,11 +141,26 @@ def retrain(args, model, x, y, print_name=''):
     yhat = prob.argmax(1)
     acc = (y == yhat).float().mean()
 
-    noise_probability = get_noise_probability(prob, y, alpha=args.alpha)
-    noise_h = reverse_cos_cdist(noise_probability, model.encode(x), model.model)
+    noise_prob = get_noise_probability(prob, y, alpha=args.alpha)
+    noise_h = reverse_cos_cdist(noise_prob, h, model.model)
     h_noised = h + noise_h
-
     model = model.fit(h_noised, y, encoded=True, bootstrap=args.bootstrap, lr=args.lr, epochs=args.epochs, one_pass_fit=args.one_pass_fit)
+
+    # # 1. This code supposed to work, but it doesn't.
+    # noise_prob = get_noise_probability(prob, y, alpha=args.alpha)
+    # prob_noised = prob + noise_prob
+    # h_noised = reverse_cos_cdist(prob_noised, h, model.model)
+    # x_noised = model.decode(h_noised)
+    # model = model.fit(x_noised, y, bootstrap=args.bootstrap, lr=args.lr, epochs=args.epochs, one_pass_fit=args.one_pass_fit)
+
+    # # 2. This code doesn't work either.
+    # noise_prob = get_noise_probability(prob, y, alpha=args.alpha)
+    # noise_h = reverse_cos_cdist(noise_prob, h, model.model)
+    # noise_x = model.decode(noise_h)
+    # x_noised = x + noise_x
+    # h_noised = model.encode(x_noised)
+    # model = model.fit(h_noised, y, encoded=True, bootstrap=args.bootstrap, lr=args.lr, epochs=args.epochs, one_pass_fit=args.one_pass_fit)
+
     t = time() - t
 
     yhat = model(x)
@@ -173,8 +207,8 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--lr', default=0.02, type=float, metavar='L')
-    parser.add_argument('--epochs', default=30, type=int, metavar='E')
+    parser.add_argument('--lr', default=0.035, type=float, metavar='L')
+    parser.add_argument('--epochs', default=20, type=int, metavar='E')
     parser.add_argument('--bootstrap', default=1.0, type=float, metavar='B')
     parser.add_argument('--one_pass_fit', default=False, type=bool, metavar='O')
     parser.add_argument('--retrain_iter', default=20, type=int)

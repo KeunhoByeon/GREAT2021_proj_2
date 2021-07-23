@@ -106,11 +106,8 @@ class Encoder(object):
         # we need batches to remove memory usage
         for i in range(0, n, bsize):
             torch.sub(h[i:i + bsize], self.base, out=temp)
+            # temp_case_1 = (-1 * self.base + self.base.mul(self.base).add(h[i:i + bsize].mul(4)).sqrt()).div(2)
+            # temp_case_2 = (-1 * self.base - self.base.mul(self.base).add(h[i:i + bsize].mul(4)).sqrt()).div(2)
             torch.matmul(temp, basis_t_pinv, out=x_decoded[i:i + bsize])
-            # case_1 = (-1 * self.base + self.base.mul(self.base).add(h[i:i + bsize].mul(4)).sqrt()).div(2)
-            # case_2 = (-1 * self.base - self.base.mul(self.base).add(h[i:i + bsize].mul(4)).sqrt()).div(2)
-
-        # Round to 6th decimal place (to correct very small incorrect value)
-        x_decoded = torch.round(x_decoded.clamp(0) * 10 ** 6) / (10 ** 6)
 
         return x_decoded
