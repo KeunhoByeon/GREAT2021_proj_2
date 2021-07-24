@@ -40,27 +40,11 @@ def validate(model, x_test, y_test, print_name='Validate', debug=False, debug_di
     acc_test = (y_test == yhat_test).float().mean()
 
     noise_prob = get_noise_probability(prob, y_test, alpha=args.alpha)
-    noise_h = reverse_cos_cdist(noise_prob, h_test, model.model)
-    h_test_noised = h_test + noise_h
-    x_test_noised_prob = model.probabilities_raw(h_test_noised, encoded=True)
+    prob_noised = prob + noise_prob
+    h_test_noised = reverse_cos_cdist(prob_noised, h_test, model.model)
     x_test_noised = model.decode(h_test_noised)
+    x_test_noised_prob = model.probabilities_raw(x_test_noised)
     noise_x = x_test - x_test_noised
-
-    # # 1. This code supposed to work, but it doesn't.
-    # noise_prob = get_noise_probability(prob, y_test, alpha=args.alpha)
-    # prob_noised = prob + noise_prob
-    # h_test_noised = reverse_cos_cdist(prob_noised, h_test, model.model)
-    # x_test_noised = model.decode(h_test_noised)
-    # x_test_noised_prob = model.probabilities_raw(x_test_noised)
-    # noise_x = x_test - x_test_noised
-
-    # # 2. This code doesn't work either.
-    # noise_prob = get_noise_probability(prob, y_test, alpha=args.alpha)
-    # noise_h = reverse_cos_cdist(noise_prob, h_test, model.model)
-    # noise_x = model.decode(noise_h)
-    # x_test_noised = x_test + noise_x
-    # h_test_noised = model.encode(x_test_noised)
-    # x_test_noised_prob = model.probabilities_raw(h_test_noised, encoded=True)
 
     t = time() - t
 
@@ -142,24 +126,10 @@ def retrain(args, model, x, y, print_name=''):
     acc = (y == yhat).float().mean()
 
     noise_prob = get_noise_probability(prob, y, alpha=args.alpha)
-    noise_h = reverse_cos_cdist(noise_prob, h, model.model)
-    h_noised = h + noise_h
-    model = model.fit(h_noised, y, encoded=True, bootstrap=args.bootstrap, lr=args.lr, epochs=args.epochs, one_pass_fit=args.one_pass_fit)
-
-    # # 1. This code supposed to work, but it doesn't.
-    # noise_prob = get_noise_probability(prob, y, alpha=args.alpha)
-    # prob_noised = prob + noise_prob
-    # h_noised = reverse_cos_cdist(prob_noised, h, model.model)
-    # x_noised = model.decode(h_noised)
-    # model = model.fit(x_noised, y, bootstrap=args.bootstrap, lr=args.lr, epochs=args.epochs, one_pass_fit=args.one_pass_fit)
-
-    # # 2. This code doesn't work either.
-    # noise_prob = get_noise_probability(prob, y, alpha=args.alpha)
-    # noise_h = reverse_cos_cdist(noise_prob, h, model.model)
-    # noise_x = model.decode(noise_h)
-    # x_noised = x + noise_x
-    # h_noised = model.encode(x_noised)
-    # model = model.fit(h_noised, y, encoded=True, bootstrap=args.bootstrap, lr=args.lr, epochs=args.epochs, one_pass_fit=args.one_pass_fit)
+    prob_noised = prob + noise_prob
+    h_noised = reverse_cos_cdist(prob_noised, h, model.model)
+    x_noised = model.decode(h_noised)
+    model = model.fit(x_noised, y, bootstrap=args.bootstrap, lr=args.lr, epochs=args.epochs, one_pass_fit=args.one_pass_fit)
 
     t = time() - t
 
@@ -192,11 +162,28 @@ def main(args):
     validate(model, x_test, y_test, print_name='Validate Before Retrain', debug=args.debug, debug_dir='./debug/before_retrain', debug_max_num=100)
 
     # Retrain
+    import matplotlib.pyplot as plt
+    acc_test_list = []
+    noise_mean_list = []
     for retrain_i in range(args.retrain_iter):
         retrain(args, model, x, y, print_name='Retrain  {}/{}'.format(retrain_i + 1, args.retrain_iter))
-        validate(model, x_test, y_test, print_name='Validate {}/{}'.format(retrain_i + 1, args.retrain_iter),
+        acc_test, acc_test_noised, noise_mean = validate(model, x_test, y_test, print_name='Validate {}/{}'.format(retrain_i + 1, args.retrain_iter),
                  # debug=False)  # No debug when validating during retraining
                  debug=args.debug, debug_dir='./debug/retrain_iter/{}'.format(retrain_i + 1), debug_max_num=100)
+        noise_mean_list.append(noise_mean)
+        acc_test_list.append(acc_test)
+
+    if args.debug:
+        plt.plot(range(len(noise_mean_list)), noise_mean_list)
+        plt.xlabel('Train iter')
+        plt.ylabel('noise mean')
+        plt.savefig('./debug/noise_mean.png', dpi=300)
+        plt.clf()
+        plt.plot(range(len(acc_test_list)), acc_test_list)
+        plt.xlabel('Train iter')
+        plt.ylabel('Acc original x_test')
+        plt.savefig('./debug/acc_test.png', dpi=300)
+        plt.clf()
 
     # Validate After Retrain
     validate(model, x_test, y_test, print_name='Validate After Retrain', debug=args.debug, debug_dir='./debug/after_retrain', debug_max_num=100)
