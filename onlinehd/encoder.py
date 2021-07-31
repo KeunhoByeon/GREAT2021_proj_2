@@ -61,16 +61,17 @@ class Encoder(object):
         # we need batches to remove memory usage
         for i in range(0, n, bsize):
             torch.matmul(x[i:i + bsize], self.basis.T, out=temp)
-            torch.add(temp, self.base, out=h[i:i + bsize])
-            # h[i:i+bsize].cos_().mul_(temp.sin_())
-            # h[i:i+bsize].mul_(temp)
+            h[i:i+bsize] = torch.atan(temp / self.dim)
 
         # # DEBUG
-        # x_decoded = self.decode(h)
-        # x_decoded = x_decoded
-        # print('x', x.sum(), x)
-        # print('x_decoded', x_decoded.sum(), x_decoded)
-        # print('diff', (x - x_decoded).sum())
+        # reversed_x = self.decode(h)
+        # print()
+        # print('Basis min max:', self.basis.min().item(), self.basis.max().item())
+        # print('X min max:', x.min().item(), x.max().item())
+        # print('H min max:', h.min().item(), h.max().item())
+        # print('X reversed min max:', reversed_x.min().item(), reversed_x.max().item())
+        # print('Diff mean:', torch.mean(torch.abs(x - reversed_x)).item())
+        # print()
 
         return h
 
@@ -105,9 +106,8 @@ class Encoder(object):
 
         # we need batches to remove memory usage
         for i in range(0, n, bsize):
-            torch.sub(h[i:i + bsize], self.base, out=temp)
-            # temp_case_1 = (-1 * self.base + self.base.mul(self.base).add(h[i:i + bsize].mul(4)).sqrt()).div(2)
-            # temp_case_2 = (-1 * self.base - self.base.mul(self.base).add(h[i:i + bsize].mul(4)).sqrt()).div(2)
+            torch.tan(h[i:i + bsize], out=temp)
+            temp = temp * self.dim
             torch.matmul(temp, basis_t_pinv, out=x_decoded[i:i + bsize])
 
-        return x_decoded
+        return x_decoded #.clamp(0., 1.)

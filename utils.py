@@ -36,9 +36,11 @@ def load_mnist(data_dir, print_info=False, save_data=True, use_new=False):
             torch.save(y_test, os.path.join(data_dir, 'y_test'))
 
     # Normalize
-    scaler = sklearn.preprocessing.Normalizer().fit(x)
-    x = scaler.transform(x)
-    x_test = scaler.transform(x_test)
+    # scaler = sklearn.preprocessing.Normalizer().fit(x)
+    # x = scaler.transform(x)
+    # x_test = scaler.transform(x_test)
+    x = x / 255. #- 0.5
+    x_test = x_test / 255. #- 0.5
 
     # Changes data to pytorch's tensors
     x = torch.from_numpy(x).float()

@@ -1,7 +1,7 @@
 import torch
 
 
-def cos_cdist(x1: torch.Tensor, x2: torch.Tensor, eps: float = 1e-8):
+def cos_cdist(h: torch.Tensor, model: torch.Tensor, eps: float = 1e-8):
     r'''
     Computes pairwise cosine similarity between samples in `x1` and `x2`,
     forcing each point l2-norm to be at least `eps`. This similarity between
@@ -26,22 +26,25 @@ def cos_cdist(x1: torch.Tensor, x2: torch.Tensor, eps: float = 1e-8):
 
     '''
 
-    eps = torch.tensor(eps, device=x1.device)
-    norms1 = x1.norm(dim=1).unsqueeze_(1).max(eps)
-    norms2 = x2.norm(dim=1).unsqueeze_(0).max(eps)
-    cdist = x1 @ x2.T
-    cdist.div_(norms1).div_(norms2)
+    eps = torch.tensor(eps, device=h.device)
+    # norms1 = x1.norm(dim=1).unsqueeze_(1).max(eps)
+    model_norms = model.norm(dim=1).unsqueeze_(0).max(eps)
+
+    cdist = h @ model.T
+    # cdist.div_(norms1)
+    cdist.div_(model_norms)
 
     return cdist
 
 
-def reverse_cos_cdist(cdist: torch.Tensor, x1: torch.Tensor, x2: torch.Tensor, eps: float = 1e-8):
+def reverse_cos_cdist(cdist: torch.Tensor, model: torch.Tensor, eps: float = 1e-8, inversed: bool = False):
     # TODO: The error value is relatively large at this part, so I hope this part to be changed.
-    eps = torch.tensor(eps, device=x1.device)
-    norms1 = x1.norm(dim=1).unsqueeze_(1).max(eps)
-    norms2 = x2.norm(dim=1).unsqueeze_(0).max(eps)
+    eps = torch.tensor(eps, device=model.device)
+    norms_model = model.norm(dim=1).unsqueeze_(0).max(eps)
 
-    cdist = cdist.mul(norms2).mul(norms1)
-    reverse_x1 = cdist @ x2.T.pinverse()
+    cdist.mul_(norms_model)
 
-    return reverse_x1
+    if inversed:
+        return cdist @ model.T
+
+    return cdist @ model.T.pinverse()
